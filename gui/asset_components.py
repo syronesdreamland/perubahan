@@ -55,7 +55,7 @@ class AssetComponentsUtils:
                 choices=choices,
                 interactive=True,
                 label="Choose background video",
-                value=random.choice(choices)
+                value=random.choice(choices) if choices else []
             )
         return cls.instance_background_video_checkbox
 
@@ -67,7 +67,7 @@ class AssetComponentsUtils:
                 choices=choices,
                 interactive=True,
                 label="Choose background music",
-                value=random.choice(choices)
+                value=random.choice(choices) if choices else []
             )
         return cls.instance_background_music_checkbox
 
@@ -80,7 +80,7 @@ class AssetComponentsUtils:
                 cls.instance_voiceChoice[provider] = gr.Radio(
                     cls.getElevenlabsVoices(),
                     label="Elevenlabs voice",
-                    value="Chris",
+                    value="Chris - Charming, Down-to-Earth",
                     interactive=True,
                 )
         return cls.instance_voiceChoice[provider]
@@ -94,7 +94,7 @@ class AssetComponentsUtils:
                 cls.instance_voiceChoiceTranslation[provider] = gr.Radio(
                     cls.getElevenlabsVoices(),
                     label="Elevenlabs voice",
-                    value="Chris",
+                    value="Chris - Charming, Down-to-Earth",
                     interactive=True,
                 )
         return cls.instance_voiceChoiceTranslation[provider]

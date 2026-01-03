@@ -19,6 +19,9 @@ system_prompt: >
   A Chinese farmer who always wanted to own his own plane built a full scale,
   non-working replica of an airbus A320 out of 50 tons of steel. It took him and his friends over two years and costed over $400,000. 
 
+  IMPORTANT: Do not use any of the following facts/topics as they have already been used:
+  <<PREVIOUSLY_USED>>
+
   When invited by a lady to spend a night with her, Benjamin Franklin asked to postpone until winter when nights were longer.
   ---
    

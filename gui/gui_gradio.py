@@ -34,7 +34,7 @@ class ShortGptUI(AbstractBaseUI):
                     print("\n\n********************* STARTING SHORGPT **********************")
                     print("\nShortGPT is running here 👉 http://localhost:31415\n")
                     print("********************* STARTING SHORGPT **********************\n\n")
-        shortGptUI.queue().launch(server_port=31415, height=1000, allowed_paths=["public/","videos/","fonts/"], share=self.colab, server_name="0.0.0.0")
+        shortGptUI.queue().launch(server_port=31415, height=1000, allowed_paths=["public/","videos/","fonts/"], share=self.colab, server_name="127.0.0.1")
 
 
 

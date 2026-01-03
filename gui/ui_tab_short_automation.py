@@ -27,7 +27,14 @@ class ShortAutomationUI(AbstractComponentUI):
         with gr.Row(visible=False) as short_automation:
             with gr.Column():
                 numShorts = gr.Number(label="Number of shorts", minimum=1, value=1)
-                short_type = gr.Radio(["Reddit Story shorts", "Historical Facts shorts", "Scientific Facts shorts", "Custom Facts shorts"], label="Type of shorts generated", value="Reddit Story shorts", interactive=True)
+                short_type = gr.Radio([
+                    "Reddit Story shorts", 
+                    "Historical Facts shorts", 
+                    "Scientific Facts shorts", 
+                    "Weird Laws shorts",
+                    "Dark History shorts",
+                    "Custom Facts shorts"
+                ], label="Type of shorts generated", value="Reddit Story shorts", interactive=True)
                 facts_subject = gr.Textbox(label="Write a subject for your facts (example: Football facts)", interactive=True, visible=False)
                 short_type.change(lambda x: gr.update(visible=x == "Custom Facts shorts"), [short_type], [facts_subject])
                 tts_engine = gr.Radio([AssetComponentsUtils.ELEVEN_TTS, AssetComponentsUtils.EDGE_TTS], label="Text to speech engine", value=AssetComponentsUtils.EDGE_TTS, interactive=True)
@@ -121,7 +128,10 @@ class ShortAutomationUI(AbstractComponentUI):
                 yield self.embedHTML + '</div>', gr.update(visible=True), gr.update(visible=False)
         except Exception as e:
             traceback_str = ''.join(traceback.format_tb(e.__traceback__))
-            error_name = type(e).__name__.capitalize() + " : " + f"{e.args[0]}"
+            error_msg = str(e)
+            if e.args:
+                error_msg = str(e.args[0])
+            error_name = type(e).__name__.capitalize() + " : " + error_msg
             print("Error", traceback_str)
             error_html = GradioComponentsHTML.get_html_error_template().format(error_message=error_name, stack_trace=traceback_str)
             yield self.embedHTML + '</div>', gr.update(visible=True), gr.update(value=error_html, visible=True)
@@ -145,17 +155,19 @@ class ShortAutomationUI(AbstractComponentUI):
 
         openai_key = ApiKeyManager.get_api_key("OPENAI_API_KEY")
         gemini_key = ApiKeyManager.get_api_key("GEMINI_API_KEY")
-        if not openai_key and not gemini_key:
-            raise gr.Error("GEMINI OR OPENAI API key is missing. Please go to the config tab and enter the API key.")
+        groq_key = ApiKeyManager.get_api_key("GROQ_API_KEY")
+        if not openai_key and not gemini_key and not groq_key:
+            raise gr.Error("GEMINI, OPENAI, or GROQ API key is missing. Please go to the config tab and enter the API key.")
         eleven_labs_key = ApiKeyManager.get_api_key("ELEVENLABS_API_KEY")
         if self.tts_engine == AssetComponentsUtils.ELEVEN_TTS and not eleven_labs_key:
             raise gr.Error("ELEVENLABS_API_KEY API key is missing. Please go to the config tab and enter the API key.")
         return gr.update(visible=False)
 
     def create_short_engine(self, short_type, voice_module, language, numImages, watermark, background_video, background_music, facts_subject):
-        if short_type == "Reddit Story shorts":
-            return RedditShortEngine(voice_module, background_video_name=background_video, background_music_name=background_music, num_images=numImages, watermark=watermark, language=language)
-        if "fact" in short_type.lower():
+        if "Reddit Story shorts" in short_type:
+            return RedditShortEngine(voice_module, background_video_name=background_video, background_music_name=background_music, num_images=numImages, watermark=watermark, language=language, mode="default")
+        
+        if "fact" in short_type.lower() or "laws" in short_type.lower() or "history" in short_type.lower():
             if "custom" in short_type.lower():
                 facts_subject = facts_subject
             else:

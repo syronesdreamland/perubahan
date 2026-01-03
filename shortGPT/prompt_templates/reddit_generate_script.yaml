@@ -10,9 +10,13 @@ system_prompt: |
   7- The language used in the story must be familiar, casual that a normal person telling an story would use. Even youthful.
   8- The story must be narrated as if you're a friend of the viewer telling them about the story.
   9- Start the the story with 'I'
+  10- Do NOT repeat stories provided in the "Avoid" list.
 
 chat_prompt: |
   Reddit question: <<QUESTION>>
+
+  Avoid these stories (they were already used):
+  <<PREVIOUS_SCRIPTS>>
 
   -New Generated story. The story has to be highly unusual and spicy and must really surprise its listeners and hook them up to the story. Don't forget to make it between 120 and 140 words:
   Reddit, <<QUESTION>>

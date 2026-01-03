@@ -104,6 +104,11 @@ class ContentShortEngine(AbstractContentEngine):
             self.logger("Rendering short: (1/4) preparing voice asset...")
             self._db_audio_path, self._db_voiceover_duration = get_asset_duration(
                 self._db_audio_path, isVideo=False)
+        
+        # Fix: Ensure background_trimmed is a local file, not a URL
+        if self._db_background_trimmed and self._db_background_trimmed.startswith("http"):
+            self._db_background_trimmed = None
+
         if not self._db_background_trimmed:
             self.logger("Rendering short: (2/4) preparing background video asset...")
             self._db_background_trimmed = extract_random_clip_from_video(

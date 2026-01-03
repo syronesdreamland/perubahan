@@ -133,11 +133,22 @@ class CoreEditingEngine:
         for action in actions:
  
             if action['type'] == 'resize':
-                clip = clip.with_effects([vfx.Resize(**action['param'])])
+                params = action['param']
+                if isinstance(params, dict):
+                    # Ensure dimensions are > 0
+                    params = {k: max(1, int(v)) if isinstance(v, (int, float)) else v for k, v in params.items()}
+                    clip = clip.with_effects([vfx.Resize(**params)])
+                else:
+                    clip = clip.with_effects([vfx.Resize(params)])
                 continue
 
             if action['type'] == 'crop':
-                clip = clip.with_effects([vfx.Crop(**action['param'])])
+                params = action['param']
+                params = {k: int(v) if isinstance(v, (int, float)) else v for k, v in params.items()}
+                # Validate crop dimensions
+                if 'width' in params and params['width'] <= 0: params['width'] = 1
+                if 'height' in params and params['height'] <= 0: params['height'] = 1
+                clip = clip.with_effects([vfx.Crop(**params)])
                 continue
 
             if action['type'] == 'screen_position':
@@ -161,9 +172,42 @@ class CoreEditingEngine:
                 height = action['param']['maxHeight']
                 width = action['param']['maxWidth']
                 if ar <1:
-                    clip = clip.with_effects([vfx.Resize((height*ar, height))])
+                    clip = clip.with_effects([vfx.Resize((int(height*ar), int(height)))])
                 else:
-                    clip = clip.with_effects([vfx.Resize((width, width/ar))])
+                    clip = clip.with_effects([vfx.Resize((int(width), int(width/ar)))])
+                continue
+
+            if action['type'] == 'vhs_glitch':
+                # Simple chromatic aberration effect
+                def chromatic_aberration(frame):
+                    # Shift red channel left, blue channel right
+                    shift = 4
+                    r = np.roll(frame[:,:,0], shift, axis=1)
+                    g = frame[:,:,1]
+                    b = np.roll(frame[:,:,2], -shift, axis=1)
+                    return np.stack((r,g,b), axis=2)
+                
+                clip = clip.image_transform(chromatic_aberration)
+                continue
+
+            if action['type'] == 'black_and_white':
+                clip = clip.with_effects([vfx.BlackAndWhite()])
+                continue
+
+            if action['type'] == 'police_lights':
+                # Flashing red and blue overlay
+                def police_flash(get_frame, t):
+                    frame = get_frame(t)
+                    # Flash every 0.5 seconds
+                    if int(t * 4) % 2 == 0:
+                        # Red tint
+                        frame[:,:,0] = np.minimum(frame[:,:,0] * 1.5, 255)
+                    else:
+                        # Blue tint
+                        frame[:,:,2] = np.minimum(frame[:,:,2] * 1.5, 255)
+                    return frame
+                
+                clip = clip.fl(police_flash)
                 continue
 
         return clip
@@ -201,6 +245,15 @@ class CoreEditingEngine:
 
     def process_image_asset(self, asset: Dict[str, Any]) -> ImageClip:
         clip = ImageClip(asset['parameters']['url'])
+        # Optimization: Resize huge images immediately to save memory
+        w, h = clip.size
+        if w * h > 1920 * 1920:
+            from PIL import Image
+            print(f"Resizing large image {asset['parameters']['url']} from {w}x{h}")
+            img = Image.fromarray(clip.get_frame(0))
+            img.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
+            clip = ImageClip(np.array(img))
+
         return self.process_common_visual_actions(clip, asset['actions'])
 
     def process_text_asset(self, asset: Dict[str, Any]) -> TextClip:
@@ -243,18 +296,8 @@ class CoreEditingEngine:
 
 
     def __normalize_frame(self, frame):
-        shape = np.shape(frame)
-        [dimensions, ] = np.shape(shape)
-
-        if dimensions == 2:
-            (height, width) = shape
-            normalized_frame = np.zeros((height, width, 3))
-            for y in range(height):
-                for x in range(width):
-                    grey_value = frame[y][x]
-                    normalized_frame[y][x] = (grey_value, grey_value, grey_value)
-            return normalized_frame
-        else:
-            return frame
+        if frame.ndim == 2:
+            return np.stack((frame,)*3, axis=-1)
+        return frame
         
 

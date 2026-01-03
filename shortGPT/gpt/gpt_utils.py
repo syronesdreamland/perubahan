@@ -72,17 +72,27 @@ from openai import OpenAI
 def llm_completion(chat_prompt="", system="", temp=0.7, max_tokens=2000, remove_nl=True, conversation=None):
     openai_key= ApiKeyManager.get_api_key("OPENAI_API_KEY")
     gemini_key = ApiKeyManager.get_api_key("GEMINI_API_KEY")
-    if gemini_key:
+    groq_key = ApiKeyManager.get_api_key("GROQ_API_KEY")
+    
+    secondary_model = None
+    if groq_key:
+        client = OpenAI(
+            api_key=groq_key,
+            base_url="https://api.groq.com/openai/v1"
+        )
+        model="llama-3.3-70b-versatile"
+        secondary_model="llama-3.1-8b-instant"
+    elif gemini_key:
         client = OpenAI( 
             api_key=gemini_key,
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
         )
-        model="gemini-2.0-flash-lite-preview-02-05"
+        model="gemini-1.5-flash-latest"
     elif openai_key:
         client = OpenAI( api_key=openai_key)
         model="gpt-4o-mini"
     else:
-        raise Exception("No OpenAI or Gemini API Key found for LLM request")
+        raise Exception("No OpenAI, Gemini, or Groq API Key found for LLM request")
     max_retry = 5
     retry = 0
     error = ""
@@ -113,7 +123,12 @@ def llm_completion(chat_prompt="", system="", temp=0.7, max_tokens=2000, remove_
             return text
         except Exception as oops:
             retry += 1
-            print('Error communicating with OpenAI:', oops)
+            print(f'Error communicating with LLM (attempt {retry}/{max_retry}):', oops)
             error = str(oops)
+            if secondary_model and model != secondary_model and ("429" in str(oops) or "rate limit" in str(oops).lower()):
+                print(f"Rate limit reached for {model}. Switching to secondary model: {secondary_model}")
+                model = secondary_model
+                sleep(1)
+                continue
             sleep(1)
     raise Exception(f"Error communicating with LLM Endpoint Completion errored more than error: {error}")

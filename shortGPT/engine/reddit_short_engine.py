@@ -4,19 +4,60 @@ from shortGPT.config.languages import Language
 from shortGPT.engine.content_short_engine import ContentShortEngine
 from shortGPT.editing_framework.editing_engine import EditingEngine, EditingStep, Flow
 from shortGPT.gpt import reddit_gpt, gpt_voice
+from shortGPT.database.content_history_db import ContentHistoryDatabase
 import os
 
+
+import random
 
 class RedditShortEngine(ContentShortEngine):
     # Mapping of variable names to database paths
     def __init__(self,voiceModule: VoiceModule, background_video_name: str, background_music_name: str,short_id="",
-                 num_images=None, watermark=None, language:Language = Language.ENGLISH):
+                 num_images=None, watermark=None, language:Language = Language.ENGLISH, mode="default"):
         super().__init__(short_id=short_id, short_type="reddit_shorts", background_video_name=background_video_name, background_music_name=background_music_name,
                  num_images=num_images, watermark=watermark, language=language, voiceModule=voiceModule)
+        self.mode = mode
+        self.history_db = ContentHistoryDatabase()
     
     def __generateRandomStory(self):
-        question = reddit_gpt.getInterestingRedditQuestion()
-        script = reddit_gpt.createRedditScript(question)
+        # Consolidate modes: If default, pick a random sub-mode
+        if self.mode == "default":
+            self.mode = random.choice([
+                "cringe", "glitch", "revenge", "nostalgia_horror", 
+                "biological_horror", "cosmic_dread", "hidden_history", "simulation_glitch"
+            ])
+            print(f"Randomly selected Reddit mode: {self.mode}")
+
+        subreddit = "AskReddit"
+        if self.mode == "cringe":
+            subreddit = "tifu" # or confession
+        elif self.mode == "glitch":
+            subreddit = "Glitch_in_the_Matrix"
+        elif self.mode == "revenge":
+            subreddit = "PettyRevenge"
+        elif self.mode == "nostalgia_horror":
+            subreddit = "CreepyWikipedia"
+        elif self.mode == "biological_horror":
+            subreddit = "natureismetal" # or creepy, hardcorenature
+        elif self.mode == "cosmic_dread":
+            subreddit = "space" # or cosmology
+        elif self.mode == "hidden_history":
+            subreddit = "ArtifactPorn" # or TodayILearned
+        elif self.mode == "simulation_glitch":
+            subreddit = "Glitch_in_the_Matrix" # and HighStrangeness
+
+        # Get questions that have been used 10 or more times to avoid them
+        overused_questions = self.history_db.get_overused_questions(max_usage=10)
+        question = reddit_gpt.getInterestingRedditQuestion(subreddit=subreddit, previously_used=overused_questions)
+        
+        # Get previous scripts for this question to ensure uniqueness
+        previous_scripts = self.history_db.get_scripts_for_question(question)
+        
+        script = reddit_gpt.createRedditScript(question, mode=self.mode, previous_scripts=previous_scripts)
+        
+        # Save the question AND script to history
+        self.history_db.add_reddit_entry(question, script)
+        
         return script
 
     def __getRealisticStory(self, max_tries=3):
@@ -88,6 +129,13 @@ class RedditShortEngine(ContentShortEngine):
             videoEditor.addEditingStep(EditingStep.ADD_REDDIT_IMAGE, {
                                        'url': self._db_reddit_thread_image})
             
+            # Apply visual effects for specific modes
+            if self.mode == "simulation_glitch":
+                 videoEditor.addEditingStep(EditingStep.CROP_1920x1080, { # Re-using crop step structure for effect injection
+                    'url': self._db_background_trimmed,
+                    'actions': [{'type': 'vhs_glitch', 'param': None}]
+                })
+
             caption_type = EditingStep.ADD_CAPTION_SHORT_ARABIC if self._db_language == Language.ARABIC.value else EditingStep.ADD_CAPTION_SHORT 
             for timing, text in self._db_timed_captions:
                 videoEditor.addEditingStep(caption_type, {'text': text.upper(),

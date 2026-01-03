@@ -35,25 +35,57 @@ def extract_random_clip_from_video(video_url, video_duration, clip_duration, out
     """
     if not video_duration:
         raise Exception("Could not get video duration")
-    if not video_duration*0.7 > 120:
-        raise Exception("Video too short")
-    start_time = video_duration*0.15 + random.random()* (0.7*video_duration-clip_duration)
     
-    command = [
-        'ffmpeg',
-        '-loglevel', 'error',
+    # If video is shorter than needed clip, loop it or just take what we can
+    if video_duration < clip_duration:
+        print(f"Warning: Video duration ({video_duration}) is shorter than clip duration ({clip_duration}). Looping/extending.")
+        # For now, just start from 0
+        start_time = 0
+    else:
+        # Ensure we don't go out of bounds
+        max_start = video_duration - clip_duration
+        if max_start <= 0:
+            start_time = 0
+        else:
+            # Try to avoid the very beginning and end if possible
+            safe_start = video_duration * 0.15
+            safe_end = video_duration * 0.85
+            if safe_end - safe_start > clip_duration:
+                start_time = safe_start + random.random() * (safe_end - safe_start - clip_duration)
+            else:
+                start_time = random.random() * max_start
+
+    # If local file, use it directly. If URL, use it.
+    input_arg = video_url
+    
+    # If we need to loop (video shorter than clip), we need a complex filter or just loop input
+    # Simple approach: if video is short, just use stream_loop
+    
+    command = ['ffmpeg', '-y', '-loglevel', 'error']
+    
+    if video_duration < clip_duration:
+        command.extend(['-stream_loop', '-1'])
+        
+    command.extend([
         '-ss', str(start_time),
         '-t', str(clip_duration),
-        '-i', video_url,
+        '-i', input_arg,
         '-c:v', 'libx264',
         '-preset', 'ultrafast',
+        '-y',
         output_file
-    ]
+    ])
     
+    print(f"Extracting clip: {' '.join(command)}")
     subprocess.run(command, check=True)
     
     if not os.path.exists(output_file):
         raise Exception("Random clip failed to be written")
+    
+    # Verify file size
+    if os.path.getsize(output_file) < 1000:
+        raise Exception(f"Random clip file is too small ({os.path.getsize(output_file)} bytes), likely corrupted.")
+        
     return output_file
 
 
